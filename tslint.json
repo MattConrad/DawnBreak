@@ -1,0 +1,6 @@
+{
+    "rules": {
+        "curly": false,
+        "no-trailing-whitespace": [true, "ignore-blank-lines"]
+    }
+}

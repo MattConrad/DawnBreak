@@ -1,5 +1,5 @@
 /// <reference path="./phaser.3d6.d.ts" />
-// tslint:disable:curly
+/// <reference path="./DawnScene.ts" />
 
 const layerNames:string[] = ["background", "middleground"];
 const occupyTransitionLayers:string[] = ["middleground"];
@@ -12,31 +12,11 @@ const config:Object = {
     backgroundColor: "#000000",
     parent: "phaser-example",
     pixelArt: true,
-    scene: {
-        extend: { thing1: "thingy1", thing2: "thingy2" },
-        preload: preload,
-        create: create,
-        update: update
-    }};
+    scene: DawnScene
+};
+
 
 let game:Phaser.Game = new Phaser.Game(config);
-
-function preload(this: DawnScene):void {
-    this.load.image("background", "/assets/maps/background.png");
-    this.load.image("middleground", "/assets/maps/middleground.png");
-    this.load.spritesheet("characters", "/assets/maps/characters.png", { frameWidth: 32, frameHeight: 32 });
-
-    // this, at least, will NOT be the same from map to map.
-    this.load.tilemapTiledJSON("test-map", "/assets/maps/first-test-map.json");
-
-    // mwctodo: does <object><any> hack actually work? YES. is there a better way?
-    this.load.audioSprite("sfx",
-        ["/assets/audio/fx_mixdown.ogg"],
-        <object><any>"/assets/audio/fx_mixdown.json",
-        {
-            instances: 1
-        });
-}
 
 let player:Phaser.GameObjects.Sprite;
 let cursors:CursorKeys;
@@ -50,55 +30,6 @@ let sceneLayers = {};
 let tileBlockMarkers = [];
 let monsters = [];
 let test:any;
-
-function create(this: DawnScene):void {
-    initMap(this);
-
-    let graphics:Phaser.GameObjects.Graphics = this.add.graphics();
-
-    this.cameras.main.startFollow(player);
-
-    this.cameras.main.setScroll(0, 0);
-
-    cursors = this.input.keyboard.createCursorKeys();
-
-    // phaser is apparently a little slow on certain things. if phaser drags too much you can write your own custom cursor keys.
-    // http://www.codeforeach.com/javascript/keycode-for-each-key-and-usage-with-demo
-    morecursors = this.input.keyboard.addKeys({
-        numupright: 105,
-        numupleft: 103,
-        numdownright: 99,
-        numdownleft: 97,
-        numup: 104,
-        numdown: 98,
-        numright: 102,
-        numleft: 100
-    });
-}
-
-function update(this: DawnScene):void {
-    if (playerMoving) return;
-
-    if (cursors.left.isDown || morecursors.numleft.isDown) {
-        checkAndAnimateMove(this, player, -1, 0);
-    } else if (cursors.right.isDown || morecursors.numright.isDown) {
-        checkAndAnimateMove(this, player, +1, 0);
-    } else if (cursors.down.isDown || morecursors.numdown.isDown) {
-        checkAndAnimateMove(this, player, 0, +1);
-    } else if (cursors.up.isDown || morecursors.numup.isDown) {
-        checkAndAnimateMove(this, player, 0, -1);
-    } else if (morecursors.numupright.isDown) {
-        checkAndAnimateMove(this, player, +1, -1);
-    } else if (morecursors.numdownright.isDown) {
-        checkAndAnimateMove(this, player, +1, +1);
-    } else if (morecursors.numupleft.isDown) {
-        checkAndAnimateMove(this, player, -1, -1);
-    } else if (morecursors.numdownleft.isDown) {
-        checkAndAnimateMove(this, player, -1, +1);
-    } else if (cursors.space.isDown) {
-        bompPlayerSprite();
-    }
-}
 
 function bompPlayerSprite() {
     playerMoving = true;
