@@ -1,0 +1,18 @@
+
+
+
+
+
+
+
+
+using module loaders in combination with tsc compiler:
+
+this, even more, should work.
+https://blog.davidwesst.com/2016/09/How-to-Compile-Typescript-into-a-Single-File-with-AMD-Modules/
+
+this one looks like it might actually work.
+//https://stackoverflow.com/questions/42878257/with-just-typescript-no-webpack-and-no-bable-can-i-get-a-multiple-file-solutio
+
+https://stackoverflow.com/questions/42649220/visual-studio-typescript-uncaught-referenceerror-exports-is-not-defined-at/48436147#48436147
+https://stackoverflow.com/questions/31173738/typescript-getting-error-ts2304-cannot-find-name-require?rq=1
