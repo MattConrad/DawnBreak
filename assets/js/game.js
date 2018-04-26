@@ -1,5 +1,6 @@
 "use strict";
 /// <reference path="./phaser.3d6.d.ts" />
+/// <reference path="./Point.ts" />
 var __extends = (this && this.__extends) || (function () {
     var extendStatics = Object.setPrototypeOf ||
         ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
@@ -14,9 +15,8 @@ var DawnScene = /** @class */ (function (_super) {
     __extends(DawnScene, _super);
     function DawnScene(config) {
         var _this = _super.call(this, config) || this;
+        _this.playerTileXYOLD = { x: 0, y: 0 };
         _this.playerMoving = false;
-        // make this into a Point along with several other things.
-        _this.playerTileXY = { x: 0, y: 0 };
         _this.sceneLayers = {};
         _this.tileBlockMarkers = [];
         _this.monsters = [];
@@ -35,9 +35,9 @@ var DawnScene = /** @class */ (function (_super) {
         });
     };
     DawnScene.prototype.create = function () {
-        this.initMap(this);
+        this.initMap();
         var graphics = this.add.graphics();
-        this.cameras.main.startFollow(this.player);
+        this.cameras.main.startFollow(this.playerOLD);
         this.cameras.main.setScroll(0, 0);
         this.cursors = this.input.keyboard.createCursorKeys();
         // phaser is apparently a little slow on certain things. if phaser drags too much you can write your own custom cursor keys.
@@ -57,63 +57,65 @@ var DawnScene = /** @class */ (function (_super) {
         if (this.playerMoving)
             return;
         if (this.cursors.left.isDown || this.morecursors.numleft.isDown) {
-            this.checkAndAnimateMove(this, this.player, -1, 0);
+            this.checkAndAnimateMove(this.playerOLD, -1, 0);
         }
         else if (this.cursors.right.isDown || this.morecursors.numright.isDown) {
-            this.checkAndAnimateMove(this, this.player, +1, 0);
+            this.checkAndAnimateMove(this.playerOLD, +1, 0);
         }
         else if (this.cursors.down.isDown || this.morecursors.numdown.isDown) {
-            this.checkAndAnimateMove(this, this.player, 0, +1);
+            this.checkAndAnimateMove(this.playerOLD, 0, +1);
         }
         else if (this.cursors.up.isDown || this.morecursors.numup.isDown) {
-            this.checkAndAnimateMove(this, this.player, 0, -1);
+            this.checkAndAnimateMove(this.playerOLD, 0, -1);
         }
         else if (this.morecursors.numupright.isDown) {
-            this.checkAndAnimateMove(this, this.player, +1, -1);
+            this.checkAndAnimateMove(this.playerOLD, +1, -1);
         }
         else if (this.morecursors.numdownright.isDown) {
-            this.checkAndAnimateMove(this, this.player, +1, +1);
+            this.checkAndAnimateMove(this.playerOLD, +1, +1);
         }
         else if (this.morecursors.numupleft.isDown) {
-            this.checkAndAnimateMove(this, this.player, -1, -1);
+            this.checkAndAnimateMove(this.playerOLD, -1, -1);
         }
         else if (this.morecursors.numdownleft.isDown) {
-            this.checkAndAnimateMove(this, this.player, -1, +1);
+            this.checkAndAnimateMove(this.playerOLD, -1, +1);
         }
         else if (this.cursors.space.isDown) {
             this.bompPlayerSprite();
         }
     };
     DawnScene.prototype.bompPlayerSprite = function () {
+        var _this = this;
         this.playerMoving = true;
-        this.player.setFrame(this.player.frame.name + 1);
-        setTimeout(function () { this.playerMoving = false; }, 250);
+        this.playerOLD.setFrame(this.playerOLD.frame.name + 1);
+        setTimeout(function () { _this.playerMoving = false; }, 250);
     };
-    DawnScene.prototype.checkAndAnimateMove = function (scene, player, tdx, tdy) {
-        var moveResults = this.checkMove(scene, player, tdx, tdy);
+    DawnScene.prototype.checkAndAnimateMove = function (player, tdx, tdy) {
+        var _this = this;
+        var moveResults = this.checkMove(player, tdx, tdy);
         // this will play in whatever order, regardless of move validity. probably need something better eventually.
         moveResults.effects.filter(function (fx) { return fx.effect === "play-sound"; }).forEach(function (fx) {
-            scene.sound.playAudioSprite(fx.spritelib, fx.spritesound);
+            _this.sound.playAudioSprite(fx.spritelib, fx.spritesound);
         });
         if (!moveResults.valid)
             return;
         // probably we want various stages for fx handling. for now, maybe 3? pre, move, post.
         var doorsOpen = moveResults.effects.filter(function (fx) { return fx.effect === "occupy-transition-in"; });
         if (doorsOpen.length > 0)
-            this.handleOccupyTransition(scene, doorsOpen);
-        this.animateMove(scene, player, tdx, tdy);
-        this.playerTileXY = { x: this.playerTileXY.x + tdx, y: this.playerTileXY.y + tdy };
+            this.handleOccupyTransition(doorsOpen);
+        this.animateMove(player, tdx, tdy);
+        this.playerTileXYOLD = { x: this.playerTileXYOLD.x + tdx, y: this.playerTileXYOLD.y + tdy };
         var doorsClosed = moveResults.effects.filter(function (fx) { return fx.effect === "occupy-transition-out"; });
         if (doorsClosed.length > 0)
-            this.handleOccupyTransition(scene, doorsClosed);
+            this.handleOccupyTransition(doorsClosed);
     };
-    DawnScene.prototype.checkMove = function (scene, player, tdx, tdy) {
+    DawnScene.prototype.checkMove = function (player, tdx, tdy) {
         var _this = this;
         var results = { valid: false, effects: [] };
         // for now we flip on all failed moves too. later, we probably won"t flip on some fails (e.g. entity paralyzed).
         // really this is an effect too. maybe should be handled elsewhere.
         player.flipX = tdx > 0 ? true : tdx < 0 ? false : player.flipX;
-        var newxy = { x: this.playerTileXY.x + tdx, y: this.playerTileXY.y + tdy };
+        var newxy = { x: this.playerTileXYOLD.x + tdx, y: this.playerTileXYOLD.y + tdy };
         var bg = this.sceneLayers[backgroundLayerName];
         if (newxy.x < 0 || newxy.y < 0 || newxy.x >= bg.width || newxy.y >= bg.height)
             return false;
@@ -127,10 +129,10 @@ var DawnScene = /** @class */ (function (_super) {
         occupyTransitionLayers.forEach(function (layerName) {
             // we are presently on a door tile: close the door after moving player.
             var mg = _this.sceneLayers[layerName];
-            var mgOutTile = mg.tilemapLayer.getTileAt(_this.playerTileXY.x, _this.playerTileXY.y);
+            var mgOutTile = mg.tilemapLayer.getTileAt(_this.playerTileXYOLD.x, _this.playerTileXYOLD.y);
             if (mgOutTile && mgOutTile.properties.feature === "door") {
                 results["effects"].push({ effect: "occupy-transition-out", layerName: layerName,
-                    x: _this.playerTileXY.x, y: _this.playerTileXY.y, tileIndex: mgOutTile.index });
+                    x: _this.playerTileXYOLD.x, y: _this.playerTileXYOLD.y, tileIndex: mgOutTile.index });
             }
             // moving into a door; paint an open one at "new" before moving player.
             var mgInTile = mg.tilemapLayer.getTileAt(newxy.x, newxy.y);
@@ -141,10 +143,11 @@ var DawnScene = /** @class */ (function (_super) {
         });
         return results;
     };
-    DawnScene.prototype.animateMove = function (scene, player, tdx, tdy) {
+    DawnScene.prototype.animateMove = function (player, tdx, tdy) {
+        var _this = this;
         this.playerMoving = true;
-        var oc = function () { scene.playerMoving = false; console.log('called!'); };
-        var timeline = scene.tweens.createTimeline();
+        var oc = function () { _this.playerMoving = false; };
+        var timeline = this.tweens.createTimeline();
         timeline.setCallback("onComplete", oc, [timeline], timeline);
         var xq = tdx * this.sceneLayers[backgroundLayerName].tileWidth / 4;
         var yq = tdy * this.sceneLayers[backgroundLayerName].tileHeight / 4;
@@ -166,7 +169,7 @@ var DawnScene = /** @class */ (function (_super) {
             var mon = this.monsters[n];
             var mtdx = Math.floor((Math.random() * 3) - 1);
             var mtdy = Math.floor((Math.random() * 3) - 1);
-            var mtl = scene.tweens.createTimeline();
+            var mtl = this.tweens.createTimeline();
             var mxq = mtdx * this.sceneLayers[backgroundLayerName].tileWidth / 4;
             var myq = mtdy * this.sceneLayers[backgroundLayerName].tileHeight / 4;
             for (var i_1 = 1; i_1 < 5; i_1++) {
@@ -185,10 +188,10 @@ var DawnScene = /** @class */ (function (_super) {
         }
         monTimelines.forEach(function (mtl) { mtl.play(); });
         // this might actually belong here.
-        scene.sound.playAudioSprite("sfx", "squit");
+        this.sound.playAudioSprite("sfx", "squit");
         timeline.play();
     };
-    DawnScene.prototype.handleOccupyTransition = function (scene, occupyTransitionEffects) {
+    DawnScene.prototype.handleOccupyTransition = function (occupyTransitionEffects) {
         var _this = this;
         //eventually this needs to be tweens that run in parallel, not in sequence like this.
         var layerNames = occupyTransitionEffects.map(function (fx) { return fx.layerName; });
@@ -229,9 +232,9 @@ var DawnScene = /** @class */ (function (_super) {
             ? tileIndex + delta
             : tileIndex - delta;
     };
-    DawnScene.prototype.initMap = function (scene) {
+    DawnScene.prototype.initMap = function () {
         var _this = this;
-        var map = scene.add.tilemap('test-map');
+        var map = this.add.tilemap('test-map');
         layerNames.forEach(function (name) {
             var tileset = map.addTilesetImage(name);
             map.createDynamicLayer(name, tileset);
@@ -246,7 +249,6 @@ var DawnScene = /** @class */ (function (_super) {
                 .map(function (key) { return ({ layerName: layer.name, key: parseInt(key), marker: tp[key]['marker'] }); });
             _this.tileBlockMarkers.push.apply(_this.tileBlockMarkers, markers);
         });
-        var bgLayer = this.sceneLayers[backgroundLayerName];
         var charTilesetRaw = map.tilesets.filter(function (t) { return t.name === 'characters'; })[0];
         var charTilesData = Object
             .keys(charTilesetRaw.tileProperties)
@@ -274,25 +276,33 @@ var DawnScene = /** @class */ (function (_super) {
         // almost certainly this is because the firstgid for chartileset is 1.
         // however, we should be able to rely on this.  this means we can treat tileids and frame numbers interchangeably! awesome!
         //player = this.add.tileSprite(112, 112, 32, 32, 'characters', 2259);
-        this.player = scene.add.tileSprite(playerStartObject.x + 16, playerStartObject.y - 16, 32, 32, 'characters', 2260);
+        this.playerOLD = this.add.tileSprite(playerStartObject.x + 16, playerStartObject.y - 16, 32, 32, 'characters', 2260);
+        var bgLayer = this.sceneLayers[backgroundLayerName];
         //no, this is NOT the same as backgroundLayer. once it is in "map" it gets extry stuff.
-        var playerTile = bgLayer.tilemapLayer.getTileAtWorldXY(this.player.x, this.player.y);
-        this.playerTileXY = { x: playerTile.x, y: playerTile.y };
-        // losing my "this" in the forEach, but what I'm doing here ain't pretty.
-        var monners = this.monsters;
+        var playerTile = bgLayer.tilemapLayer.getTileAtWorldXY(this.playerOLD.x, this.playerOLD.y);
+        this.playerTileXYOLD = { x: playerTile.x, y: playerTile.y };
+        //let monners = this.monsters;
         charObjects
             .filter(function (m) { return m.gid !== playerGid; })
             .forEach(function (m) {
             // again, spritesheet frame uses same indexing as tiled, except tiled has the gid offset.
-            var monsterSprite = scene.add.tileSprite(m.x + 16, m.y - 16, 32, 32, 'characters', m.gid - charTilesetRaw.firstgid);
+            var monsterSprite = _this.add.tileSprite(m.x + 16, m.y - 16, 32, 32, 'characters', m.gid - charTilesetRaw.firstgid);
             var spriteTile = bgLayer.tilemapLayer.getTileAtWorldXY(monsterSprite.x, monsterSprite.y);
-            monners.push({ name: charTilesData[m.gid].name, x: spriteTile.x, y: spriteTile.y, sprite: monsterSprite });
+            _this.monsters.push({ name: charTilesData[m.gid].name, x: spriteTile.x, y: spriteTile.y, sprite: monsterSprite });
         });
         //debugger;
         //test = map;
     };
     return DawnScene;
 }(Phaser.Scene));
+// not to be confused with the TileSprite that is built into Phaser,
+// this is an object that composes sprite and tile location.
+// possibly this ends up as an inteface, but for now I'm guessing it will get some behavior.
+var SpriteTile = /** @class */ (function () {
+    function SpriteTile() {
+    }
+    return SpriteTile;
+}());
 /// <reference path="./phaser.3d6.d.ts" />
 /// <reference path="./DawnScene.ts" />
 var layerNames = ["background", "middleground"];

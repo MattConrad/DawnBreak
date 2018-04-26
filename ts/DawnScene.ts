@@ -1,15 +1,17 @@
 /// <reference path="./phaser.3d6.d.ts" />
+/// <reference path="./Point.ts" />
 
 class DawnScene extends Phaser.Scene {
 
-    player:Phaser.GameObjects.Sprite;
+    playerOLD:Phaser.GameObjects.Sprite;
+    playerTileXYOLD:Point = { x: 0, y: 0 };
+    player:SpriteTile;
+
     cursors:CursorKeys;
     // mwctodo: this any should get fixed up eventually.
     morecursors:any;
     playerMoving:boolean = false;
     
-    // make this into a Point along with several other things.
-    playerTileXY = { x: 0, y: 0 };
     sceneLayers = {};
     tileBlockMarkers:any = [];
     monsters:any = [];
@@ -38,11 +40,11 @@ class DawnScene extends Phaser.Scene {
     }
 
     create():void {
-        this.initMap(this);
+        this.initMap();
 
         let graphics:Phaser.GameObjects.Graphics = this.add.graphics();
 
-        this.cameras.main.startFollow(this.player);
+        this.cameras.main.startFollow(this.playerOLD);
 
         this.cameras.main.setScroll(0, 0);
 
@@ -66,21 +68,21 @@ class DawnScene extends Phaser.Scene {
         if (this.playerMoving) return;
     
         if (this.cursors.left.isDown || this.morecursors.numleft.isDown) {
-            this.checkAndAnimateMove(this, this.player, -1, 0);
+            this.checkAndAnimateMove(this.playerOLD, -1, 0);
         } else if (this.cursors.right.isDown || this.morecursors.numright.isDown) {
-            this.checkAndAnimateMove(this, this.player, +1, 0);
+            this.checkAndAnimateMove(this.playerOLD, +1, 0);
         } else if (this.cursors.down.isDown || this.morecursors.numdown.isDown) {
-            this.checkAndAnimateMove(this, this.player, 0, +1);
+            this.checkAndAnimateMove(this.playerOLD, 0, +1);
         } else if (this.cursors.up.isDown || this.morecursors.numup.isDown) {
-            this.checkAndAnimateMove(this, this.player, 0, -1);
+            this.checkAndAnimateMove(this.playerOLD, 0, -1);
         } else if (this.morecursors.numupright.isDown) {
-            this.checkAndAnimateMove(this, this.player, +1, -1);
+            this.checkAndAnimateMove(this.playerOLD, +1, -1);
         } else if (this.morecursors.numdownright.isDown) {
-            this.checkAndAnimateMove(this, this.player, +1, +1);
+            this.checkAndAnimateMove(this.playerOLD, +1, +1);
         } else if (this.morecursors.numupleft.isDown) {
-            this.checkAndAnimateMove(this, this.player, -1, -1);
+            this.checkAndAnimateMove(this.playerOLD, -1, -1);
         } else if (this.morecursors.numdownleft.isDown) {
-            this.checkAndAnimateMove(this, this.player, -1, +1);
+            this.checkAndAnimateMove(this.playerOLD, -1, +1);
         } else if (this.cursors.space.isDown) {
             this.bompPlayerSprite();
         }
@@ -88,19 +90,18 @@ class DawnScene extends Phaser.Scene {
 
     bompPlayerSprite() {
         this.playerMoving = true;
-        this.player.setFrame(this.player.frame.name + 1);
+        this.playerOLD.setFrame(this.playerOLD.frame.name + 1);
     
-        setTimeout(function() { this.playerMoving = false; }, 250);
+        setTimeout(() => { this.playerMoving = false; }, 250);
     }
-    
 
-    checkAndAnimateMove(scene:DawnScene, player:Phaser.GameObjects.Sprite, tdx:integer, tdy:integer) {
+    checkAndAnimateMove(player:Phaser.GameObjects.Sprite, tdx:integer, tdy:integer) {
 
-        let moveResults = this.checkMove(scene, player, tdx, tdy);
+        let moveResults = this.checkMove(player, tdx, tdy);
     
         // this will play in whatever order, regardless of move validity. probably need something better eventually.
         moveResults.effects.filter(fx => fx.effect === "play-sound").forEach(fx => {
-            scene.sound.playAudioSprite(fx.spritelib, fx.spritesound);
+            this.sound.playAudioSprite(fx.spritelib, fx.spritesound);
         });
     
         if (!moveResults.valid) return;
@@ -108,17 +109,17 @@ class DawnScene extends Phaser.Scene {
         // probably we want various stages for fx handling. for now, maybe 3? pre, move, post.
     
         let doorsOpen = moveResults.effects.filter(fx => fx.effect === "occupy-transition-in");
-        if (doorsOpen.length > 0) this.handleOccupyTransition(scene, doorsOpen);
+        if (doorsOpen.length > 0) this.handleOccupyTransition(doorsOpen);
 
-        this.animateMove(scene, player, tdx, tdy);
+        this.animateMove(player, tdx, tdy);
 
-        this.playerTileXY = { x: this.playerTileXY.x + tdx, y: this.playerTileXY.y + tdy };
+        this.playerTileXYOLD = { x: this.playerTileXYOLD.x + tdx, y: this.playerTileXYOLD.y + tdy };
     
         var doorsClosed = moveResults.effects.filter(fx => fx.effect === "occupy-transition-out");
-        if (doorsClosed.length > 0) this.handleOccupyTransition(scene, doorsClosed);
+        if (doorsClosed.length > 0) this.handleOccupyTransition(doorsClosed);
     }
     
-    checkMove(scene:DawnScene, player:Phaser.GameObjects.Sprite, tdx:integer, tdy:integer) {
+    checkMove(player:Phaser.GameObjects.Sprite, tdx:integer, tdy:integer) {
     
         let results = { valid: false, effects: [] };
     
@@ -126,7 +127,7 @@ class DawnScene extends Phaser.Scene {
         // really this is an effect too. maybe should be handled elsewhere.
         player.flipX = tdx > 0 ? true : tdx < 0 ? false : player.flipX;
     
-        let newxy = { x: this.playerTileXY.x + tdx, y: this.playerTileXY.y + tdy };
+        let newxy = { x: this.playerTileXYOLD.x + tdx, y: this.playerTileXYOLD.y + tdy };
     
         let bg = this.sceneLayers[backgroundLayerName];
         if (newxy.x < 0 || newxy.y < 0 || newxy.x >= bg.width || newxy.y >= bg.height) return false;
@@ -143,10 +144,10 @@ class DawnScene extends Phaser.Scene {
         occupyTransitionLayers.forEach(layerName => {
                 // we are presently on a door tile: close the door after moving player.
                 let mg = this.sceneLayers[layerName];
-                let mgOutTile = mg.tilemapLayer.getTileAt(this.playerTileXY.x, this.playerTileXY.y);
+                let mgOutTile = mg.tilemapLayer.getTileAt(this.playerTileXYOLD.x, this.playerTileXYOLD.y);
                 if (mgOutTile && mgOutTile.properties.feature === "door") {
                     results["effects"].push({ effect: "occupy-transition-out", layerName: layerName,
-                        x: this.playerTileXY.x, y: this.playerTileXY.y, tileIndex: mgOutTile.index });
+                        x: this.playerTileXYOLD.x, y: this.playerTileXYOLD.y, tileIndex: mgOutTile.index });
                 }
                 // moving into a door; paint an open one at "new" before moving player.
                 var mgInTile = mg.tilemapLayer.getTileAt(newxy.x, newxy.y);
@@ -158,11 +159,11 @@ class DawnScene extends Phaser.Scene {
         return results;
     }
     
-    animateMove(scene:DawnScene, player:Phaser.GameObjects.Sprite, tdx:integer, tdy:integer) {
+    animateMove(player:Phaser.GameObjects.Sprite, tdx:integer, tdy:integer) {
         this.playerMoving = true;
    
-        let oc = function () { scene.playerMoving = false; console.log('called!'); };
-        let timeline = scene.tweens.createTimeline();
+        let oc = () => { this.playerMoving = false; };
+        let timeline = this.tweens.createTimeline();
         timeline.setCallback("onComplete", oc, [timeline], timeline);
     
         let xq:integer = tdx * this.sceneLayers[backgroundLayerName].tileWidth / 4;
@@ -186,7 +187,7 @@ class DawnScene extends Phaser.Scene {
     
             let mtdx:integer = Math.floor((Math.random() * 3) - 1);
             let mtdy:integer = Math.floor((Math.random() * 3) - 1);
-            let mtl:Phaser.Tweens.Timeline = scene.tweens.createTimeline();
+            let mtl:Phaser.Tweens.Timeline = this.tweens.createTimeline();
     
             let mxq:integer = mtdx * this.sceneLayers[backgroundLayerName].tileWidth / 4;
             let myq:integer = mtdy * this.sceneLayers[backgroundLayerName].tileHeight  / 4;
@@ -206,11 +207,11 @@ class DawnScene extends Phaser.Scene {
         monTimelines.forEach(mtl => { mtl.play(); });
     
         // this might actually belong here.
-        scene.sound.playAudioSprite("sfx", "squit");
+        this.sound.playAudioSprite("sfx", "squit");
         timeline.play();
     }
     
-    handleOccupyTransition(scene, occupyTransitionEffects) {
+    handleOccupyTransition(occupyTransitionEffects) {
         //eventually this needs to be tweens that run in parallel, not in sequence like this.
         var layerNames = occupyTransitionEffects.map(fx => fx.layerName);
     
@@ -261,8 +262,8 @@ class DawnScene extends Phaser.Scene {
             : tileIndex - delta;
     }
     
-    initMap(scene) {
-        let map = scene.add.tilemap('test-map');
+    initMap() {
+        let map = this.add.tilemap('test-map');
     
         layerNames.forEach(name => {
             let tileset = map.addTilesetImage(name);
@@ -281,8 +282,6 @@ class DawnScene extends Phaser.Scene {
                 this.tileBlockMarkers.push.apply(this.tileBlockMarkers, markers);
         });
 
-        let bgLayer = this.sceneLayers[backgroundLayerName];
-    
         let charTilesetRaw = map.tilesets.filter(t => t.name === 'characters')[0];
         let charTilesData = Object
             .keys(charTilesetRaw.tileProperties)
@@ -309,26 +308,26 @@ class DawnScene extends Phaser.Scene {
         let playerGid = parseInt(playerPlaceholders[0]);
         let playerStartObject = charObjects.filter(o => o.gid === playerGid)[0];
     
-    
         //2259 is the frame. this is the SAME as the LOCAL id that you view while hovering in Tiled.
         // almost certainly this is because the firstgid for chartileset is 1.
         // however, we should be able to rely on this.  this means we can treat tileids and frame numbers interchangeably! awesome!
         //player = this.add.tileSprite(112, 112, 32, 32, 'characters', 2259);
-        this.player = scene.add.tileSprite(playerStartObject.x + 16, playerStartObject.y - 16, 32, 32, 'characters', 2260);
-    
-        //no, this is NOT the same as backgroundLayer. once it is in "map" it gets extry stuff.
-        let playerTile = bgLayer.tilemapLayer.getTileAtWorldXY(this.player.x, this.player.y);
-        this.playerTileXY = { x: playerTile.x, y: playerTile.y };
+        this.playerOLD = this.add.tileSprite(playerStartObject.x + 16, playerStartObject.y - 16, 32, 32, 'characters', 2260);
 
-        // losing my "this" in the forEach, but what I'm doing here ain't pretty.
-        let monners = this.monsters;
+        let bgLayer = this.sceneLayers[backgroundLayerName];
+
+        //no, this is NOT the same as backgroundLayer. once it is in "map" it gets extry stuff.
+        let playerTile = bgLayer.tilemapLayer.getTileAtWorldXY(this.playerOLD.x, this.playerOLD.y);
+        this.playerTileXYOLD = { x: playerTile.x, y: playerTile.y };
+
+        //let monners = this.monsters;
         charObjects
             .filter(m => m.gid !== playerGid)
-            .forEach(function (m) {
+            .forEach((m) => {
                 // again, spritesheet frame uses same indexing as tiled, except tiled has the gid offset.
-                let monsterSprite = scene.add.tileSprite(m.x + 16, m.y - 16, 32, 32, 'characters', m.gid - charTilesetRaw.firstgid);
+                let monsterSprite = this.add.tileSprite(m.x + 16, m.y - 16, 32, 32, 'characters', m.gid - charTilesetRaw.firstgid);
                 let spriteTile = bgLayer.tilemapLayer.getTileAtWorldXY(monsterSprite.x, monsterSprite.y);
-                monners.push({ name: charTilesData[m.gid].name, x: spriteTile.x, y: spriteTile.y, sprite: monsterSprite });
+                this.monsters.push({ name: charTilesData[m.gid].name, x: spriteTile.x, y: spriteTile.y, sprite: monsterSprite });
             });
     
         //debugger;
