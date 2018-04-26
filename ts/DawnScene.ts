@@ -3,10 +3,7 @@
 
 class DawnScene extends Phaser.Scene {
 
-    playerOLD:Phaser.GameObjects.Sprite;
-    playerTileXYOLD:Point = { x: 0, y: 0 };
     player:SpriteTile;
-
     cursors:CursorKeys;
     // mwctodo: this any should get fixed up eventually.
     morecursors:any;
@@ -14,7 +11,7 @@ class DawnScene extends Phaser.Scene {
     
     sceneLayers = {};
     tileBlockMarkers:any = [];
-    monsters:any = [];
+    monsters:Array<SpriteTile> = [];
     test:any;
 
     constructor (config) {
@@ -44,7 +41,7 @@ class DawnScene extends Phaser.Scene {
 
         let graphics:Phaser.GameObjects.Graphics = this.add.graphics();
 
-        this.cameras.main.startFollow(this.playerOLD);
+        this.cameras.main.startFollow(this.player.sprite);
 
         this.cameras.main.setScroll(0, 0);
 
@@ -68,21 +65,21 @@ class DawnScene extends Phaser.Scene {
         if (this.playerMoving) return;
     
         if (this.cursors.left.isDown || this.morecursors.numleft.isDown) {
-            this.checkAndAnimateMove(this.playerOLD, -1, 0);
+            this.checkAndAnimateMove(this.player, -1, 0);
         } else if (this.cursors.right.isDown || this.morecursors.numright.isDown) {
-            this.checkAndAnimateMove(this.playerOLD, +1, 0);
+            this.checkAndAnimateMove(this.player, +1, 0);
         } else if (this.cursors.down.isDown || this.morecursors.numdown.isDown) {
-            this.checkAndAnimateMove(this.playerOLD, 0, +1);
+            this.checkAndAnimateMove(this.player, 0, +1);
         } else if (this.cursors.up.isDown || this.morecursors.numup.isDown) {
-            this.checkAndAnimateMove(this.playerOLD, 0, -1);
+            this.checkAndAnimateMove(this.player, 0, -1);
         } else if (this.morecursors.numupright.isDown) {
-            this.checkAndAnimateMove(this.playerOLD, +1, -1);
+            this.checkAndAnimateMove(this.player, +1, -1);
         } else if (this.morecursors.numdownright.isDown) {
-            this.checkAndAnimateMove(this.playerOLD, +1, +1);
+            this.checkAndAnimateMove(this.player, +1, +1);
         } else if (this.morecursors.numupleft.isDown) {
-            this.checkAndAnimateMove(this.playerOLD, -1, -1);
+            this.checkAndAnimateMove(this.player, -1, -1);
         } else if (this.morecursors.numdownleft.isDown) {
-            this.checkAndAnimateMove(this.playerOLD, -1, +1);
+            this.checkAndAnimateMove(this.player, -1, +1);
         } else if (this.cursors.space.isDown) {
             this.bompPlayerSprite();
         }
@@ -90,12 +87,12 @@ class DawnScene extends Phaser.Scene {
 
     bompPlayerSprite() {
         this.playerMoving = true;
-        this.playerOLD.setFrame(this.playerOLD.frame.name + 1);
+        this.player.sprite.setFrame(this.player.sprite.frame.name + 1);
     
         setTimeout(() => { this.playerMoving = false; }, 250);
     }
 
-    checkAndAnimateMove(player:Phaser.GameObjects.Sprite, tdx:integer, tdy:integer) {
+    checkAndAnimateMove(player:SpriteTile, tdx:integer, tdy:integer) {
 
         let moveResults = this.checkMove(player, tdx, tdy);
     
@@ -113,21 +110,21 @@ class DawnScene extends Phaser.Scene {
 
         this.animateMove(player, tdx, tdy);
 
-        this.playerTileXYOLD = { x: this.playerTileXYOLD.x + tdx, y: this.playerTileXYOLD.y + tdy };
+        this.player.location = { x: this.player.location.x + tdx, y: this.player.location.y + tdy };
     
         var doorsClosed = moveResults.effects.filter(fx => fx.effect === "occupy-transition-out");
         if (doorsClosed.length > 0) this.handleOccupyTransition(doorsClosed);
     }
     
-    checkMove(player:Phaser.GameObjects.Sprite, tdx:integer, tdy:integer) {
+    checkMove(player:SpriteTile, tdx:integer, tdy:integer) {
     
         let results = { valid: false, effects: [] };
     
         // for now we flip on all failed moves too. later, we probably won"t flip on some fails (e.g. entity paralyzed).
         // really this is an effect too. maybe should be handled elsewhere.
-        player.flipX = tdx > 0 ? true : tdx < 0 ? false : player.flipX;
+        player.sprite.flipX = tdx > 0 ? true : tdx < 0 ? false : player.sprite.flipX;
     
-        let newxy = { x: this.playerTileXYOLD.x + tdx, y: this.playerTileXYOLD.y + tdy };
+        let newxy = { x: this.player.location.x + tdx, y: this.player.location.y + tdy };
     
         let bg = this.sceneLayers[backgroundLayerName];
         if (newxy.x < 0 || newxy.y < 0 || newxy.x >= bg.width || newxy.y >= bg.height) return false;
@@ -144,10 +141,10 @@ class DawnScene extends Phaser.Scene {
         occupyTransitionLayers.forEach(layerName => {
                 // we are presently on a door tile: close the door after moving player.
                 let mg = this.sceneLayers[layerName];
-                let mgOutTile = mg.tilemapLayer.getTileAt(this.playerTileXYOLD.x, this.playerTileXYOLD.y);
+                let mgOutTile = mg.tilemapLayer.getTileAt(this.player.location.x, this.player.location.y);
                 if (mgOutTile && mgOutTile.properties.feature === "door") {
                     results["effects"].push({ effect: "occupy-transition-out", layerName: layerName,
-                        x: this.playerTileXYOLD.x, y: this.playerTileXYOLD.y, tileIndex: mgOutTile.index });
+                        x: this.player.location.x, y: this.player.location.y, tileIndex: mgOutTile.index });
                 }
                 // moving into a door; paint an open one at "new" before moving player.
                 var mgInTile = mg.tilemapLayer.getTileAt(newxy.x, newxy.y);
@@ -159,7 +156,7 @@ class DawnScene extends Phaser.Scene {
         return results;
     }
     
-    animateMove(player:Phaser.GameObjects.Sprite, tdx:integer, tdy:integer) {
+    animateMove(player:SpriteTile, tdx:integer, tdy:integer) {
         this.playerMoving = true;
    
         let oc = () => { this.playerMoving = false; };
@@ -173,9 +170,9 @@ class DawnScene extends Phaser.Scene {
             let dy:integer = yq * i;
             if (i % 2 === 1) dy -= 1;
             timeline.add({
-                targets: player,
-                x: player.x + dx,
-                y: player.y + dy,
+                targets: player.sprite,
+                x: player.sprite.x + dx,
+                y: player.sprite.y + dy,
                 duration: 20
             });
         }
@@ -306,28 +303,37 @@ class DawnScene extends Phaser.Scene {
         if (playerPlaceholders.length !== 1) throw `Failed to find unique player placeholder gid. Found ${playerPlaceholders.length}.`;
     
         let playerGid = parseInt(playerPlaceholders[0]);
-        let playerStartObject = charObjects.filter(o => o.gid === playerGid)[0];
+        let playerPoint:Point = charObjects.filter(o => o.gid === playerGid)[0];
     
         //2259 is the frame. this is the SAME as the LOCAL id that you view while hovering in Tiled.
         // almost certainly this is because the firstgid for chartileset is 1.
         // however, we should be able to rely on this.  this means we can treat tileids and frame numbers interchangeably! awesome!
         //player = this.add.tileSprite(112, 112, 32, 32, 'characters', 2259);
-        this.playerOLD = this.add.tileSprite(playerStartObject.x + 16, playerStartObject.y - 16, 32, 32, 'characters', 2260);
+        this.player = new SpriteTile();
+        this.player.name = 'player';
+        this.player.sprite = this.add.tileSprite(playerPoint.x + 16, playerPoint.y - 16, 32, 32, 'characters', 2260);
 
         let bgLayer = this.sceneLayers[backgroundLayerName];
 
         //no, this is NOT the same as backgroundLayer. once it is in "map" it gets extry stuff.
-        let playerTile = bgLayer.tilemapLayer.getTileAtWorldXY(this.playerOLD.x, this.playerOLD.y);
-        this.playerTileXYOLD = { x: playerTile.x, y: playerTile.y };
+        let playerTile = bgLayer.tilemapLayer.getTileAtWorldXY(this.player.sprite.x, this.player.sprite.y);
+        this.player.location = { x: playerTile.x, y: playerTile.y };
 
         //let monners = this.monsters;
         charObjects
             .filter(m => m.gid !== playerGid)
             .forEach((m) => {
                 // again, spritesheet frame uses same indexing as tiled, except tiled has the gid offset.
-                let monsterSprite = this.add.tileSprite(m.x + 16, m.y - 16, 32, 32, 'characters', m.gid - charTilesetRaw.firstgid);
-                let spriteTile = bgLayer.tilemapLayer.getTileAtWorldXY(monsterSprite.x, monsterSprite.y);
-                this.monsters.push({ name: charTilesData[m.gid].name, x: spriteTile.x, y: spriteTile.y, sprite: monsterSprite });
+                // let monsterSprite = this.add.tileSprite(m.x + 16, m.y - 16, 32, 32, 'characters', m.gid - charTilesetRaw.firstgid);
+                //this.monsters.push({ name: charTilesData[m.gid].name, x: spriteTileLocation.x, y: spriteTileLocation.y, sprite: monsterSprite });
+                let monster = new SpriteTile();
+                monster.name = charTilesData[m.gid].name;
+                monster.sprite = this.add.tileSprite(m.x + 16, m.y - 16, 32, 32, 'characters', m.gid - charTilesetRaw.firstgid);
+
+                let spriteTileLocation = bgLayer.tilemapLayer.getTileAtWorldXY(monster.sprite.x, monster.sprite.y);
+                monster.location = { x: spriteTileLocation.x, y: spriteTileLocation.y };
+
+                this.monsters.push(monster);
             });
     
         //debugger;
