@@ -9,12 +9,12 @@ class DawnScene extends Phaser.Scene {
     morecursors:any;
     playerMoving:boolean = false;
     
-    sceneLayers = {};
+    sceneLayers:LayerDataObject = {};
     tileBlockMarkers:any = [];
     monsters:Array<SpriteTile> = [];
     test:any;
 
-    constructor (config) {
+    constructor (config:Phaser.Scenes.Settings.Config) {
         super(config);
         console.log(config);
     }
@@ -26,8 +26,8 @@ class DawnScene extends Phaser.Scene {
         
         // this, at least, will NOT be the same from map to map.
         this.load.tilemapTiledJSON("test-map", "/assets/maps/first-test-map.json");
-        // mwctodo: does <object><any> hack actually work? YES. is there a better way?
 
+        // mwctodo: does <object><any> hack actually work? YES. is there a better way?
         this.load.audioSprite("sfx",
             ["/assets/audio/fx_mixdown.ogg"],
             <object><any>"/assets/audio/fx_mixdown.json",
@@ -95,7 +95,7 @@ class DawnScene extends Phaser.Scene {
     checkAndAnimateMove(player:SpriteTile, tdx:integer, tdy:integer) {
 
         let moveResults = this.checkMove(player, tdx, tdy);
-    
+
         // this will play in whatever order, regardless of move validity. probably need something better eventually.
         moveResults.effects.filter(fx => fx.effect === "play-sound").forEach(fx => {
             this.sound.playAudioSprite(fx.spritelib, fx.spritesound);
@@ -116,9 +116,9 @@ class DawnScene extends Phaser.Scene {
         if (doorsClosed.length > 0) this.handleOccupyTransition(doorsClosed);
     }
     
-    checkMove(player:SpriteTile, tdx:integer, tdy:integer) {
+    checkMove(player:SpriteTile, tdx:integer, tdy:integer):MoveResults {
     
-        let results = { valid: false, effects: [] };
+        let results = { valid: false, effects: Array<MoveEffect>() };
     
         // for now we flip on all failed moves too. later, we probably won"t flip on some fails (e.g. entity paralyzed).
         // really this is an effect too. maybe should be handled elsewhere.
@@ -127,7 +127,7 @@ class DawnScene extends Phaser.Scene {
         let newxy = { x: this.player.location.x + tdx, y: this.player.location.y + tdy };
     
         let bg = this.sceneLayers[backgroundLayerName];
-        if (newxy.x < 0 || newxy.y < 0 || newxy.x >= bg.width || newxy.y >= bg.height) return false;
+        if (newxy.x < 0 || newxy.y < 0 || newxy.x >= bg.width || newxy.y >= bg.height) return results;
     
         let bgTile = bg.tilemapLayer.getTileAt(newxy.x, newxy.y);
         if (bgTile.properties.obstacle === "stone") {
@@ -160,7 +160,7 @@ class DawnScene extends Phaser.Scene {
         this.playerMoving = true;
    
         let oc = () => { this.playerMoving = false; };
-        let timeline = this.tweens.createTimeline();
+        let timeline = this.tweens.createTimeline(null);
         timeline.setCallback("onComplete", oc, [timeline], timeline);
     
         let xq:integer = tdx * this.sceneLayers[backgroundLayerName].tileWidth / 4;
@@ -178,13 +178,13 @@ class DawnScene extends Phaser.Scene {
         }
 
         // abominable temp hack of course, but I want something to happen with monsters today.
-        let monTimelines = [];
+        let monTimelines = Array<Phaser.Tweens.Timeline>();
         for (var n:integer = 0; n < this.monsters.length; n++) {
             let mon = this.monsters[n];
     
             let mtdx:integer = Math.floor((Math.random() * 3) - 1);
             let mtdy:integer = Math.floor((Math.random() * 3) - 1);
-            let mtl:Phaser.Tweens.Timeline = this.tweens.createTimeline();
+            let mtl:Phaser.Tweens.Timeline = this.tweens.createTimeline(null);
     
             let mxq:integer = mtdx * this.sceneLayers[backgroundLayerName].tileWidth / 4;
             let myq:integer = mtdy * this.sceneLayers[backgroundLayerName].tileHeight  / 4;
@@ -208,7 +208,7 @@ class DawnScene extends Phaser.Scene {
         timeline.play();
     }
     
-    handleOccupyTransition(occupyTransitionEffects) {
+    handleOccupyTransition(occupyTransitionEffects:Array<MoveEffect>):void {
         //eventually this needs to be tweens that run in parallel, not in sequence like this.
         var layerNames = occupyTransitionEffects.map(fx => fx.layerName);
     
@@ -224,7 +224,7 @@ class DawnScene extends Phaser.Scene {
         });
     }
     
-    getOccupyTransitionTileId(map, layerName, effect, tileIndex) {
+    getOccupyTransitionTileId(map:Phaser.Tilemaps.Tilemap, layerName:string, effect:string, tileIndex:integer):integer {
     
         if (effect !== 'occupy-transition-in' && effect !== 'occupy-transition-out') {
             console.error('unsupported effect "' + effect + '", returning original');
@@ -264,7 +264,7 @@ class DawnScene extends Phaser.Scene {
     
         layerNames.forEach(name => {
             let tileset = map.addTilesetImage(name);
-            map.createDynamicLayer(name, tileset);
+            map.createDynamicLayer(name, tileset, null, null);
         });
    
         map.layers.forEach(layer => {

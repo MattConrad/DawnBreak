@@ -110,14 +110,14 @@ var DawnScene = /** @class */ (function (_super) {
     };
     DawnScene.prototype.checkMove = function (player, tdx, tdy) {
         var _this = this;
-        var results = { valid: false, effects: [] };
+        var results = { valid: false, effects: Array() };
         // for now we flip on all failed moves too. later, we probably won"t flip on some fails (e.g. entity paralyzed).
         // really this is an effect too. maybe should be handled elsewhere.
         player.sprite.flipX = tdx > 0 ? true : tdx < 0 ? false : player.sprite.flipX;
         var newxy = { x: this.player.location.x + tdx, y: this.player.location.y + tdy };
         var bg = this.sceneLayers[backgroundLayerName];
         if (newxy.x < 0 || newxy.y < 0 || newxy.x >= bg.width || newxy.y >= bg.height)
-            return false;
+            return results;
         var bgTile = bg.tilemapLayer.getTileAt(newxy.x, newxy.y);
         if (bgTile.properties.obstacle === "stone") {
             results["effects"].push({ effect: "play-sound", spritelib: "sfx", spritesound: "boss hit" });
@@ -146,7 +146,7 @@ var DawnScene = /** @class */ (function (_super) {
         var _this = this;
         this.playerMoving = true;
         var oc = function () { _this.playerMoving = false; };
-        var timeline = this.tweens.createTimeline();
+        var timeline = this.tweens.createTimeline(null);
         timeline.setCallback("onComplete", oc, [timeline], timeline);
         var xq = tdx * this.sceneLayers[backgroundLayerName].tileWidth / 4;
         var yq = tdy * this.sceneLayers[backgroundLayerName].tileHeight / 4;
@@ -163,12 +163,12 @@ var DawnScene = /** @class */ (function (_super) {
             });
         }
         // abominable temp hack of course, but I want something to happen with monsters today.
-        var monTimelines = [];
+        var monTimelines = Array();
         for (var n = 0; n < this.monsters.length; n++) {
             var mon = this.monsters[n];
             var mtdx = Math.floor((Math.random() * 3) - 1);
             var mtdy = Math.floor((Math.random() * 3) - 1);
-            var mtl = this.tweens.createTimeline();
+            var mtl = this.tweens.createTimeline(null);
             var mxq = mtdx * this.sceneLayers[backgroundLayerName].tileWidth / 4;
             var myq = mtdy * this.sceneLayers[backgroundLayerName].tileHeight / 4;
             for (var i_1 = 1; i_1 < 5; i_1++) {
@@ -236,7 +236,7 @@ var DawnScene = /** @class */ (function (_super) {
         var map = this.add.tilemap('test-map');
         layerNames.forEach(function (name) {
             var tileset = map.addTilesetImage(name);
-            map.createDynamicLayer(name, tileset);
+            map.createDynamicLayer(name, tileset, null, null);
         });
         map.layers.forEach(function (layer) {
             _this.sceneLayers[layer.name] = layer;
