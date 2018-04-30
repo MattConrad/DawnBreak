@@ -10,7 +10,7 @@ class DawnScene extends Phaser.Scene {
     playerMoving:boolean = false;
     
     sceneLayers:LayerDataObject = {};
-    tileBlockMarkers:any = [];
+    tileBlockMarkers:Array<TileBlockMarker> = [];
     monsters:Array<SpriteTile> = [];
     test:any;
 
@@ -130,7 +130,7 @@ class DawnScene extends Phaser.Scene {
         if (newxy.x < 0 || newxy.y < 0 || newxy.x >= bg.width || newxy.y >= bg.height) return results;
     
         let bgTile = bg.tilemapLayer.getTileAt(newxy.x, newxy.y);
-        if (bgTile.properties.obstacle === "stone") {
+        if ((<any>bgTile.properties).obstacle === "stone") {
             results["effects"].push({ effect: "play-sound", spritelib: "sfx", spritesound: "boss hit" });
     
             return results;
@@ -142,13 +142,13 @@ class DawnScene extends Phaser.Scene {
                 // we are presently on a door tile: close the door after moving player.
                 let mg = this.sceneLayers[layerName];
                 let mgOutTile = mg.tilemapLayer.getTileAt(this.player.location.x, this.player.location.y);
-                if (mgOutTile && mgOutTile.properties.feature === "door") {
+                if (mgOutTile && (<any>mgOutTile.properties).feature === "door") {
                     results["effects"].push({ effect: "occupy-transition-out", layerName: layerName,
                         x: this.player.location.x, y: this.player.location.y, tileIndex: mgOutTile.index });
                 }
                 // moving into a door; paint an open one at "new" before moving player.
                 var mgInTile = mg.tilemapLayer.getTileAt(newxy.x, newxy.y);
-                if (mgInTile && mgInTile.properties.feature === "door") {
+                if (mgInTile && (<any>mgInTile.properties).feature === "door") {
                     results["effects"].push({ effect: "occupy-transition-in", layerName: layerName,
                         x: newxy.x, y: newxy.y, tileIndex: mgInTile.index });
                 }        });
@@ -230,9 +230,9 @@ class DawnScene extends Phaser.Scene {
             console.error('unsupported effect "' + effect + '", returning original');
             return tileIndex;
         };
-    
-        var tilesetIndex = map.tilesets.findIndex(t => t.name === layerName);
-        var columnNumber = (tileIndex - map.tilesets[tilesetIndex].firstgid) % map.tilesets[tilesetIndex].columns;
+
+        var layerTileset = map.tilesets.filter(t => t.name == layerName)[0];
+        var columnNumber = (tileIndex - layerTileset.firstgid) % layerTileset.columns;
     
         if (isNaN(columnNumber)) {
             console.error('columnNumber for tileIndex was NaN, returning original');
@@ -245,7 +245,9 @@ class DawnScene extends Phaser.Scene {
         // could do this in preload. now we don't even care about the difference between xition in and out--just reverse whatever it was.
         // although, this maybe gets tricky when multiple agents are in/out on the same turn. maybe we need to know in/out.
     
-        var doorBlockStarts = this.tileBlockMarkers.filter(m => m.marker === 'door').map(m => m.key);
+        var doorBlockStarts = this.tileBlockMarkers
+            .filter(m => m.marker === 'door')
+            .map(m => m.key);
     
         if (doorBlockStarts.length !== 2) {
             console.error('expected exactly 2 door block starts, got ' + doorBlockStarts.length + ", returning original");
@@ -274,27 +276,31 @@ class DawnScene extends Phaser.Scene {
     
             let tp = layer.tilemapLayer.tileset.tileProperties;
             let markers = Object.keys(tp)
-                .filter(key => tp[key].hasOwnProperty('marker'))
-                .map(key => ({ layerName: layer.name, key: parseInt(key), marker: tp[key]['marker'] }));
-                this.tileBlockMarkers.push.apply(this.tileBlockMarkers, markers);
+                .filter(key => (<any>tp)[key].hasOwnProperty('marker'))
+                .map(key => ({ layerName: layer.name, key: parseInt(key), marker: (<any>tp)[key]['marker'] }));
+
+            this.tileBlockMarkers.push.apply(this.tileBlockMarkers, markers);
         });
 
-        let charTilesetRaw = map.tilesets.filter(t => t.name === 'characters')[0];
+        let charTileset = map.tilesets.filter(t => t.name === 'characters')[0];
+        let charFirstGid = charTileset.firstgid;
+        let charProps = <any>charTileset.tileProperties;
         let charTilesData = Object
-            .keys(charTilesetRaw.tileProperties)
+            .keys(charProps)
             .map(function(k) {
-                let t = parseInt(k) + charTilesetRaw.firstgid;
-                return { chargid: t, name: charTilesetRaw.tileProperties[k].name, props: charTilesetRaw.tileProperties[k] }
+                let t = parseInt(k) + charFirstGid;
+                return { chargid: t, name: charProps[k].name, props: charProps[k] }
             }).reduce(function(acc, cur) {
                 acc[cur.chargid] = cur.props;
                 return acc;
-            }, {});
+            }, <any>{});
     
         // we only care about certain properties here.
         let charObjects = map.objects
             .filter(o => o.name === 'initial-characters')[0].objects
-            .map(function(o) {
-                let obj = { gid: parseInt(o.gid), x: o.x, y: o.y };
+            .map(function(x) {
+                let o = <TiledObjectLayerObject><any>x;
+                let obj = { gid: o.gid, x: o.x, y: o.y };
                 Object.assign(obj, o.properties);
                 return obj;
             });
@@ -319,7 +325,6 @@ class DawnScene extends Phaser.Scene {
         let playerTile = bgLayer.tilemapLayer.getTileAtWorldXY(this.player.sprite.x, this.player.sprite.y);
         this.player.location = { x: playerTile.x, y: playerTile.y };
 
-        //let monners = this.monsters;
         charObjects
             .filter(m => m.gid !== playerGid)
             .forEach((m) => {
@@ -328,7 +333,7 @@ class DawnScene extends Phaser.Scene {
                 //this.monsters.push({ name: charTilesData[m.gid].name, x: spriteTileLocation.x, y: spriteTileLocation.y, sprite: monsterSprite });
                 let monster = new SpriteTile();
                 monster.name = charTilesData[m.gid].name;
-                monster.sprite = this.add.tileSprite(m.x + 16, m.y - 16, 32, 32, 'characters', m.gid - charTilesetRaw.firstgid);
+                monster.sprite = this.add.tileSprite(m.x + 16, m.y - 16, 32, 32, 'characters', m.gid - charFirstGid);
 
                 let spriteTileLocation = bgLayer.tilemapLayer.getTileAtWorldXY(monster.sprite.x, monster.sprite.y);
                 monster.location = { x: spriteTileLocation.x, y: spriteTileLocation.y };

@@ -210,8 +210,8 @@ var DawnScene = /** @class */ (function (_super) {
             return tileIndex;
         }
         ;
-        var tilesetIndex = map.tilesets.findIndex(function (t) { return t.name === layerName; });
-        var columnNumber = (tileIndex - map.tilesets[tilesetIndex].firstgid) % map.tilesets[tilesetIndex].columns;
+        var layerTileset = map.tilesets.filter(function (t) { return t.name == layerName; })[0];
+        var columnNumber = (tileIndex - layerTileset.firstgid) % layerTileset.columns;
         if (isNaN(columnNumber)) {
             console.error('columnNumber for tileIndex was NaN, returning original');
             return tileIndex;
@@ -220,7 +220,9 @@ var DawnScene = /** @class */ (function (_super) {
         //yanno, we could inspect the map for all the non-zero tile ids used, and then make an object that cached tileids with their related partners.
         // could do this in preload. now we don't even care about the difference between xition in and out--just reverse whatever it was.
         // although, this maybe gets tricky when multiple agents are in/out on the same turn. maybe we need to know in/out.
-        var doorBlockStarts = this.tileBlockMarkers.filter(function (m) { return m.marker === 'door'; }).map(function (m) { return m.key; });
+        var doorBlockStarts = this.tileBlockMarkers
+            .filter(function (m) { return m.marker === 'door'; })
+            .map(function (m) { return m.key; });
         if (doorBlockStarts.length !== 2) {
             console.error('expected exactly 2 door block starts, got ' + doorBlockStarts.length + ", returning original");
             return tileIndex;
@@ -248,12 +250,14 @@ var DawnScene = /** @class */ (function (_super) {
                 .map(function (key) { return ({ layerName: layer.name, key: parseInt(key), marker: tp[key]['marker'] }); });
             _this.tileBlockMarkers.push.apply(_this.tileBlockMarkers, markers);
         });
-        var charTilesetRaw = map.tilesets.filter(function (t) { return t.name === 'characters'; })[0];
+        var charTileset = map.tilesets.filter(function (t) { return t.name === 'characters'; })[0];
+        var charFirstGid = charTileset.firstgid;
+        var charProps = charTileset.tileProperties;
         var charTilesData = Object
-            .keys(charTilesetRaw.tileProperties)
+            .keys(charProps)
             .map(function (k) {
-            var t = parseInt(k) + charTilesetRaw.firstgid;
-            return { chargid: t, name: charTilesetRaw.tileProperties[k].name, props: charTilesetRaw.tileProperties[k] };
+            var t = parseInt(k) + charFirstGid;
+            return { chargid: t, name: charProps[k].name, props: charProps[k] };
         }).reduce(function (acc, cur) {
             acc[cur.chargid] = cur.props;
             return acc;
@@ -261,8 +265,9 @@ var DawnScene = /** @class */ (function (_super) {
         // we only care about certain properties here.
         var charObjects = map.objects
             .filter(function (o) { return o.name === 'initial-characters'; })[0].objects
-            .map(function (o) {
-            var obj = { gid: parseInt(o.gid), x: o.x, y: o.y };
+            .map(function (x) {
+            var o = x;
+            var obj = { gid: o.gid, x: o.x, y: o.y };
             Object.assign(obj, o.properties);
             return obj;
         });
@@ -282,7 +287,6 @@ var DawnScene = /** @class */ (function (_super) {
         //no, this is NOT the same as backgroundLayer. once it is in "map" it gets extry stuff.
         var playerTile = bgLayer.tilemapLayer.getTileAtWorldXY(this.player.sprite.x, this.player.sprite.y);
         this.player.location = { x: playerTile.x, y: playerTile.y };
-        //let monners = this.monsters;
         charObjects
             .filter(function (m) { return m.gid !== playerGid; })
             .forEach(function (m) {
@@ -291,7 +295,7 @@ var DawnScene = /** @class */ (function (_super) {
             //this.monsters.push({ name: charTilesData[m.gid].name, x: spriteTileLocation.x, y: spriteTileLocation.y, sprite: monsterSprite });
             var monster = new SpriteTile();
             monster.name = charTilesData[m.gid].name;
-            monster.sprite = _this.add.tileSprite(m.x + 16, m.y - 16, 32, 32, 'characters', m.gid - charTilesetRaw.firstgid);
+            monster.sprite = _this.add.tileSprite(m.x + 16, m.y - 16, 32, 32, 'characters', m.gid - charFirstGid);
             var spriteTileLocation = bgLayer.tilemapLayer.getTileAtWorldXY(monster.sprite.x, monster.sprite.y);
             monster.location = { x: spriteTileLocation.x, y: spriteTileLocation.y };
             _this.monsters.push(monster);
